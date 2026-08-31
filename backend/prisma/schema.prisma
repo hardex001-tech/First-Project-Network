@@ -1,0 +1,97 @@
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --------------------------------------------------
+// 1. CORE NODES (USERS)
+// --------------------------------------------------
+model User {
+  id           String   @id @default(uuid())
+  handle       String   @unique
+  name         String
+  passwordHash String?
+  role         String   @default("Offensive Security Engineer")
+  location     String?
+  avatarUrl    String?
+  reputation   Int      @default(0)
+  isLive       Boolean  @default(false)
+  
+  // Tactical Skills & Clearances
+  skills       String[] 
+  clearances   String[] 
+
+  // Relations
+  posts        Post[]
+  bounties     Bounty[]
+  messagesSent Message[] @relation("MessagesSent")
+  messagesRecv Message[] @relation("MessagesReceived")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// --------------------------------------------------
+// 2. INTELLIGENCE FEED (POSTS & PAYLOADS)
+// --------------------------------------------------
+model Post {
+  id           String   @id @default(uuid())
+  title        String?
+  content      String
+  category     String   @default("General")
+  tags         String[]
+  
+  // Metrics
+  likes        Int      @default(0)
+  commentCount Int      @default(0)
+  isVerified   Boolean  @default(false)
+  
+  // Relations
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+}
+
+// --------------------------------------------------
+// 3. TACTICAL BOUNTIES
+// --------------------------------------------------
+model Bounty {
+  id           String   @id @default(uuid())
+  title        String
+  reward       Int      
+  status       String   @default("open") 
+  tags         String[]
+  expiresAt    DateTime?
+
+  // Relations
+  issuerId     String
+  issuer       User     @relation(fields: [issuerId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+}
+
+// --------------------------------------------------
+// 4. SECURE COMMS (MESSAGES)
+// --------------------------------------------------
+model Message {
+  id           String   @id @default(uuid())
+  text         String
+  isRead       Boolean  @default(false)
+
+  // Relations
+  senderId     String
+  sender       User     @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  receiverId   String
+  receiver     User     @relation("MessagesReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+}
