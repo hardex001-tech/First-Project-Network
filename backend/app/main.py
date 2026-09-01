@@ -59,6 +59,10 @@ class MessageCreate(BaseModel):
     receiver_handle: str
     text: str
 
+class ProfileUpdate(BaseModel):
+    handle: str
+    role: str
+
 # --------------------------------------------------
 # AUTHENTICATION ENDPOINTS
 # --------------------------------------------------
@@ -113,6 +117,20 @@ async def get_user_profile(handle: str):
     if not user:
         raise HTTPException(status_code=404, detail="Node not found")
     return user
+
+@app.put("/api/users/{handle}")
+async def update_profile(handle: str, profile: ProfileUpdate):
+    try:
+        user = await prisma.user.update(
+            where={"handle": handle},
+            data={
+                "handle": profile.handle,
+                "role": profile.role
+            }
+        )
+        return user
+    except Exception:
+        raise HTTPException(status_code=404, detail="User not found")
 
 @app.get("/api/bounties")
 async def get_bounties():
