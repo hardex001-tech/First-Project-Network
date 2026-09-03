@@ -1,110 +1,66 @@
 "use client";
-
-import { useState } from "react";
+import React, { useState } from "react";
+import { Shield, Terminal, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [isError, setIsError] = useState(false);
+export default function LoginPage() {
+  const [formData, setFormData] = useState({ handle: "", password: "" });
+  const [status, setStatus] = useState("");
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage("Authenticating...");
-    setIsError(false);
-
-    // FastAPI strictly requires Form Data for the login route, NOT JSON!
-    const formData = new URLSearchParams();
-    formData.append("username", username);
-    formData.append("password", password);
-
+    setStatus("Authenticating...");
     try {
-      const response = await fetch("http://127.0.0.1:8000/users/login", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData)
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Save the secret JWT token to the browser's local storage
+      const data = await res.json();
+      if (res.ok) {
+        setStatus("Access granted. Rerouting...");
         localStorage.setItem("token", data.access_token);
-        
-        setMessage("Login successful! Entering the network...");
-        // Push the user to the dashboard
+        localStorage.setItem("handle", data.handle);
         setTimeout(() => router.push("/dashboard"), 1000);
       } else {
-        setIsError(true);
-        setMessage("Invalid username or password. Please try again.");
+        setStatus(`Access denied: ${data.detail}`);
       }
-    } catch (error) {
-      console.error("Error:", error);
-      setIsError(true);
-      setMessage("Failed to connect to the backend engine.");
+    } catch (err) {
+      setStatus("Connection severed.");
     }
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-10 text-white font-sans">
-      <div className="w-full max-w-md p-8 space-y-6 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-xl">
-        
-        <div className="text-center">
-          <h1 className="text-3xl font-black text-white mb-2">
-            Welcome <span className="text-indigo-500">Back</span>
-          </h1>
-          <p className="text-zinc-400 text-sm">Log in to your account to continue.</p>
+    <main className="w-full min-h-[calc(100vh-80px)] bg-[#0e0e10] flex items-center justify-center p-6">
+      <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-8 w-full max-w-md shadow-lg">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center mb-4">
+            <Shield className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="text-2xl font-black text-white uppercase tracking-tight">System Login</h1>
+          <p className="text-sm text-zinc-500 font-mono mt-2">Authenticate node identity</p>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              placeholder="e.g., Stud"
-              required
-            />
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="relative">
+            <Terminal className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
+            <input type="text" placeholder="Handle" required
+              className="w-full bg-[#0e0e10] border border-zinc-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500"
+              onChange={e => setFormData({...formData, handle: e.target.value})} />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-zinc-300 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-              placeholder="••••••••••••"
-              required
-            />
+          <div className="relative">
+            <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-500" />
+            <input type="password" placeholder="Passphrase" required
+              className="w-full bg-[#0e0e10] border border-zinc-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-orange-500"
+              onChange={e => setFormData({...formData, password: e.target.value})} />
           </div>
-          <button
-            type="submit"
-            className="w-full py-3 px-4 bg-indigo-500 hover:bg-indigo-600 rounded-xl font-bold transition-colors mt-2 shadow-md"
-          >
-            Log In
+          
+          <button type="submit" className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-2.5 rounded-lg transition-colors mt-2">
+            Establish Connection
           </button>
+          {status && <p className="text-center text-xs font-mono text-orange-500 mt-4">{status}</p>}
         </form>
-
-        {message && (
-          <div className={`p-3 rounded-lg text-sm font-medium text-center ${isError ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-green-500/10 text-green-400 border border-green-500/20"}`}>
-            {message}
-          </div>
-        )}
-
-        <div className="text-center mt-6">
-          <p className="text-sm text-zinc-400">
-            Don't have an account?{" "}
-            <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
-              Join here
-            </Link>
-          </p>
-        </div>
       </div>
     </main>
   );

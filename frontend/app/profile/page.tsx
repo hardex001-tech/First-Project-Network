@@ -1,221 +1,144 @@
 "use client";
+import React, { useState, useEffect } from "react";
+import { MapPin, Terminal, Zap, Shield, LayoutDashboard, Code, Clock } from "lucide-react";
+import ReputationBadge from "../components/ReputationBadge";
+import SkillTree from "../components/SkillTree";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Navbar from "../components/Navbar";
-
-interface UserProfile {
-  id: number;
-  email: string;
-  username: string;
-}
-
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  skills_required: string;
-  owner_id: number;
-}
-
-export default function Profile() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [myProjects, setMyProjects] = useState<Project[]>([]);
+export default function ProfilePage() {
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Edit State
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", description: "", skills_required: "" });
-  
-  const router = useRouter();
 
   useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
+    const fetchProfile = async () => {
       try {
-        const userRes = await fetch("http://127.0.0.1:8000/users/me", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        
-        if (!userRes.ok) throw new Error("Not authenticated");
-        const userData = await userRes.json();
-        setUser(userData);
-
-        const projRes = await fetch("http://127.0.0.1:8000/projects/");
-        if (projRes.ok) {
-          const projData = await projRes.json();
-          const filteredProjects = projData.filter((p: Project) => p.owner_id === userData.id);
-          setMyProjects(filteredProjects);
-        }
+        // Hardcoding ApexRoot temporarily until we build the Login/Auth system
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`);
+        if (res.ok) setProfile(await res.json());
       } catch (error) {
-        console.error("Error:", error);
-        localStorage.removeItem("token");
-        router.push("/login");
+        console.error("Failed to fetch profile:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [router]);
+    fetchProfile();
+  }, []);
 
-  const handleDelete = async (projectId: number) => {
-    const token = localStorage.getItem("token");
-    if (!token || !window.confirm("Delete this project? This cannot be undone.")) return;
+  if (loading) {
+    return (
+      <div className="w-full min-h-[calc(100vh-80px)] bg-[#0e0e10] flex items-center justify-center font-mono text-zinc-500 text-sm animate-pulse">
+        Querying node registry...
+      </div>
+    );
+  }
 
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/projects/${projectId}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        setMyProjects(myProjects.filter(p => p.id !== projectId));
-      } else {
-        alert("Failed to delete project.");
-      }
-    } catch (error) {
-      console.error("Error deleting:", error);
-    }
-  };
-
-  // Trigger the edit mode
-  const handleEditClick = (project: Project) => {
-    setEditingId(project.id);
-    setEditForm({
-      title: project.title,
-      description: project.description,
-      skills_required: project.skills_required
-    });
-  };
-
-  // Submit the update to FastAPI
-  const handleUpdateSubmit = async (e: React.FormEvent, projectId: number) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/projects/${projectId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(editForm)
-      });
-
-      if (response.ok) {
-        const updatedProject = await response.json();
-        setMyProjects(myProjects.map(p => p.id === projectId ? updatedProject : p));
-        setEditingId(null); // Close the form
-      } else {
-        alert("Failed to update project.");
-      }
-    } catch (error) {
-      console.error("Error updating:", error);
-    }
-  };
-
-  if (loading) return <div className="min-h-screen bg-zinc-900 text-white p-10 pt-24">Loading profile data...</div>;
+  if (!profile) {
+    return (
+      <div className="w-full min-h-[calc(100vh-80px)] bg-[#0e0e10] flex items-center justify-center font-mono text-red-500 text-sm">
+        Node offline or redacted.
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-white font-sans">
-      <Navbar />
-      
-      <main className="p-10 pt-24 max-w-4xl mx-auto">
-        <div className="bg-zinc-800 rounded-2xl p-8 mb-10 border border-zinc-700 shadow-md">
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 bg-indigo-500 rounded-full flex items-center justify-center text-3xl font-black text-white shadow-inner">
-              {user?.username.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-100">{user?.username}</h1>
-              <p className="text-zinc-400">{user?.email}</p>
-              <div className="mt-2 inline-block bg-zinc-900 text-zinc-300 text-xs px-3 py-1 rounded-full font-mono">
-                Network ID: #{user?.id}
+    <main className="w-full min-h-[calc(100vh-80px)] bg-[#0e0e10] text-zinc-200 font-sans p-6 lg:p-8">
+      <div className="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
+        
+        {/* LEFT COLUMN: Identity & Clearances */}
+        <div className="xl:col-span-1 space-y-6">
+          
+          {/* Main ID Card */}
+          <section className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[80px] pointer-events-none" />
+            
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative">
+                <img 
+                  src={profile.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.handle}&backgroundColor=ea580c`} 
+                  className="w-20 h-20 rounded-lg bg-[#0e0e10] border-2 border-zinc-700 p-1" 
+                  alt="Avatar" 
+                />
+                <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-[#0e0e10] text-[10px] font-black px-2 py-0.5 rounded border-2 border-[#18181b]">
+                  LIVE
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-white uppercase tracking-tight">{profile.name}</h1>
+                <p className="text-orange-500 font-mono text-sm">@{profile.handle}</p>
               </div>
             </div>
-          </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-3 text-sm text-zinc-400">
+                <Shield className="w-4 h-4 text-zinc-500" /> {profile.role}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-zinc-400">
+                <MapPin className="w-4 h-4 text-zinc-500" /> {profile.location || "Location Obscured"}
+              </div>
+            </div>
+
+            {/* Reputation Score */}
+            <div className="bg-[#0e0e10] border border-zinc-800 rounded-lg p-4 flex items-center justify-between mb-6">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Network Rep</span>
+              <div className="flex items-center gap-1.5 text-2xl font-black text-emerald-400">
+                <Zap className="w-5 h-5" /> {profile.reputation}
+              </div>
+            </div>
+
+            {/* Clearances */}
+            <div>
+              <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Active Clearances</h4>
+              <div className="flex flex-wrap gap-2">
+                {profile.clearances?.map((clearance: any) => (
+                  <ReputationBadge key={clearance} type={clearance} />
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Tactical Skill Tree */}
+          <section className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 shadow-lg">
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-6">
+              <Terminal className="w-4 h-4 text-orange-500" /> Progression Matrix
+            </h3>
+            <SkillTree />
+          </section>
         </div>
 
-        <h2 className="text-2xl font-bold mb-6 text-gray-100 border-b border-zinc-700 pb-2">My Active Projects</h2>
-        
-        <div className="grid gap-6">
-          {myProjects.length === 0 ? (
-            <div className="p-8 bg-zinc-800/50 rounded-2xl text-center border border-zinc-700/50">
-              <p className="text-zinc-400">You haven't posted any projects yet.</p>
-            </div>
-          ) : (
-            myProjects.map((project) => (
-              <div key={project.id} className="p-6 rounded-2xl bg-zinc-800 border border-zinc-700 shadow-sm flex flex-col justify-between items-start gap-4">
-                
-                {/* Check if this specific project is in Edit Mode */}
-                {editingId === project.id ? (
-                  <form onSubmit={(e) => handleUpdateSubmit(e, project.id)} className="w-full space-y-4">
-                    <input
-                      type="text"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white"
-                      required
-                    />
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white resize-none"
-                      rows={3}
-                      required
-                    />
-                    <input
-                      type="text"
-                      value={editForm.skills_required}
-                      onChange={(e) => setEditForm({ ...editForm, skills_required: e.target.value })}
-                      className="w-full px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white font-mono text-sm"
-                      required
-                    />
-                    <div className="flex gap-3 pt-2">
-                      <button type="submit" className="bg-indigo-500 hover:bg-indigo-600 px-6 py-2 rounded-lg font-bold">
-                        Save Changes
-                      </button>
-                      <button type="button" onClick={() => setEditingId(null)} className="bg-zinc-700 hover:bg-zinc-600 px-6 py-2 rounded-lg font-bold">
-                        Cancel
-                      </button>
+        {/* RIGHT COLUMN: Activity & Payloads */}
+        <div className="xl:col-span-2 space-y-6">
+          
+          <div className="bg-[#18181b] border border-zinc-800 rounded-xl p-6 shadow-lg">
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4">
+              <LayoutDashboard className="w-4 h-4 text-orange-500" /> Deployed Payloads
+            </h3>
+            
+            {profile.posts?.length === 0 ? (
+              <div className="text-center py-10 font-mono text-zinc-500 text-sm">No payloads deployed yet.</div>
+            ) : (
+              <div className="space-y-4">
+                {profile.posts?.map((post: any) => (
+                  <div key={post.id} className="bg-[#0e0e10] border border-zinc-800 rounded-lg p-4 hover:border-orange-500/30 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-zinc-200">{post.title}</h4>
+                      <span className="text-[10px] text-zinc-500 font-mono">{new Date(post.createdAt).toLocaleDateString()}</span>
                     </div>
-                  </form>
-                ) : (
-                  <div className="flex flex-col md:flex-row justify-between w-full gap-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-100 mb-2">{project.title}</h3>
-                      <p className="text-zinc-300 text-sm mb-4">{project.description}</p>
-                      <div className="flex gap-2">
-                        {project.skills_required.split(',').map((skill, index) => (
-                          <span key={index} className="bg-zinc-900 text-zinc-400 text-xs px-2 py-1 rounded-md border border-zinc-700 font-mono">
-                            {skill.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-row md:flex-col gap-3 w-full md:w-auto mt-4 md:mt-0">
-                      <button onClick={() => handleEditClick(project)} className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(project.id)} className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-4 py-2 rounded-lg font-medium transition-colors text-sm">
-                        Delete
-                      </button>
+                    <p className="text-sm text-zinc-400 mb-4">{post.content}</p>
+                    <div className="flex gap-2">
+                      {post.tags?.map((tag: string) => (
+                        <span key={tag} className="text-[10px] font-bold bg-[#18181b] text-zinc-500 px-2 py-1 rounded">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                )}
+                ))}
               </div>
-            ))
-          )}
+            )}
+          </div>
+
         </div>
-      </main>
-    </div>
+
+      </div>
+    </main>
   );
 }
