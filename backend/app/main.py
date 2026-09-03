@@ -20,9 +20,9 @@ prisma = Prisma()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = [
+    origins = [
     "http://localhost:3000",
-    "https://first-project-network-seven.vercel.app" 
+    "https://first-project-network-seven.vercel.app"
 ]
     allow_credentials=True,
     allow_methods=["*"],
